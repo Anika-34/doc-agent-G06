@@ -6,3 +6,4 @@ data/blank/
 wandb/
 __pycache__/
 .venv/
+src/doc_agent.egg-info/
