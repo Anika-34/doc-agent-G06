@@ -45,3 +45,4 @@ make seed          # deterministic seeds
 make ingest index  # build the KB
 make eval          # metrics on tasks.jsonl
 make serve         # FastAPI + Gradio
+```
