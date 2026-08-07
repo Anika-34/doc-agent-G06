@@ -190,10 +190,13 @@ pandas==2.3.3
     # via
     #   datasets
     #   gradio
+pdf2image==1.17.0
+    # via doc-agent (pyproject.toml)
 pillow==10.4.0
     # via
     #   gradio
     #   matplotlib
+    #   pdf2image
     #   sentence-transformers
     #   torchvision
 platformdirs==4.11.0

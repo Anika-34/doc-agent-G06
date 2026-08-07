@@ -2,7 +2,8 @@
 from __future__ import annotations
 from ..contracts import *  # noqa
 from pathlib import Path
-import subprocess
+from pdf2image import convert_from_path
+
 
 
 IMAGE_EXTS = {".png", ".jpg", ".jpeg", ".tif", ".tiff"}
@@ -18,12 +19,15 @@ def _render_pdfs_to_pages(raw_root: Path, pages_root: Path, dpi: int) -> None:
         doc_id = pdf_path.stem
         out_dir = pages_root / doc_id
         out_dir.mkdir(parents=True, exist_ok=True)
+
         if any(out_dir.glob("*.png")):
             continue
-        subprocess.run(
-            ["pdftoppm", "-png", "-r", str(dpi), str(pdf_path), str(out_dir / "page")],
-            check=True,
-        )
+
+        images = convert_from_path(str(pdf_path), dpi=dpi)
+        for i, img in enumerate(images, start=1):
+            out_path = out_dir / f"page-{i:03d}.png"
+            if not out_path.exists():
+                img.save(out_path, "PNG")
 
 
 def _iter_pages(pages_root: Path) -> list[Page]:
