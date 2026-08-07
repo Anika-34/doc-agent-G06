@@ -2,8 +2,10 @@ data/raw/
 data/interim/
 data/pages/
 data/blank/
+data/ground-truth-ocr/
 *.ckpt
 wandb/
 __pycache__/
 .venv/
 src/doc_agent.egg-info/
+*DS_Store
