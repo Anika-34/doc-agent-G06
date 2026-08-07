@@ -1,6 +1,16 @@
 # Corpus provenance (A1 — fill this)
 - Source (URL):
+  - Krishi-bigyan Vol. 1 (Dasgupta, 1938): https://archive.org/details/in.ernet.dli.2015.357305
+  - Krishi Darpan Vol. 1 (Mukhopadhyay): https://archive.org/details/dli.bengal.10689.6254
+  - Bharater-Krishi-Babyasthar-Parichay.pdf (Vol. 1): https://archive.org/details/dli.bengal.10689.16530
 - Licence / usage rights:
-- Pages: __   Words: __   Size on disk: __
+  - Pre-independence Bengali publications hosted on Internet Archive and treated as public-domain historical scans.
+  - Re-share allowed with source attribution; provenance must be preserved.
+- Pages: 776   Words: ~120,458 (A1 estimate)   Size on disk: ~37.98 MB
 - Scan/script difficulty notes:
+  - Bangla conjunct letters (যুক্তাক্ষর), floating matras, and older orthography from 1930s-40s.
+  - Degraded scan conditions: blur, low contrast, faded ink, occasional figures/maps and mixed formatting.
 - Split policy (by document):
+  - Train/Val: Krishi-Bigyan + Bharater-Krishi-Babyasthar-Parichay (582 pages, 75%).
+  - Test: Krishi Darpan (194 pages, 25%).
+  - Leakage control: no document overlap between train/val and test.

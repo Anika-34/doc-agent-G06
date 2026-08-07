@@ -1,5 +1,7 @@
 data/raw/
 data/interim/
+data/pages/
+data/blank/
 *.ckpt
 wandb/
 __pycache__/
