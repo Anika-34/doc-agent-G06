@@ -910,6 +910,7 @@ dependencies = [
     { name = "gradio" },
     { name = "gymnasium" },
     { name = "jiwer" },
+    { name = "kaggle" },
     { name = "lightning" },
     { name = "matplotlib" },
     { name = "numpy" },
@@ -960,6 +961,7 @@ requires-dist = [
     { name = "ipykernel", marker = "extra == 'notebook'", specifier = ">=6.29,<7.0" },
     { name = "jiwer", specifier = ">=3.0,<4.0" },
     { name = "jupyterlab", marker = "extra == 'notebook'", specifier = ">=4.2,<5.0" },
+    { name = "kaggle", specifier = ">=1.6,<2.0" },
     { name = "lightning", specifier = ">=2.2,<2.4" },
     { name = "matplotlib", specifier = ">=3.8,<3.10" },
     { name = "mypy", marker = "extra == 'dev'", specifier = ">=1.10" },
@@ -1863,6 +1865,41 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/d6/2c/90153f189e421e93c4bb4f9e3f59802a1f01abd2ac5cf40b152d7f735232/jupyterlab_server-2.28.0.tar.gz", hash = "sha256:35baa81898b15f93573e2deca50d11ac0ae407ebb688299d3a5213265033712c", size = 76996, upload-time = "2025-10-22T13:59:18.37Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/e0/07/a000fe835f76b7e1143242ab1122e6362ef1c03f23f83a045c38859c2ae0/jupyterlab_server-2.28.0-py3-none-any.whl", hash = "sha256:e4355b148fdcf34d312bbbc80f22467d6d20460e8b8736bf235577dd18506968", size = 59830, upload-time = "2025-10-22T13:59:16.767Z" },
+]
+
+[[package]]
+name = "kaggle"
+version = "1.8.4"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "bleach" },
+    { name = "kagglesdk" },
+    { name = "packaging" },
+    { name = "protobuf", version = "3.20.2", source = { registry = "https://pypi.org/simple" }, marker = "sys_platform == 'win32'" },
+    { name = "protobuf", version = "5.29.6", source = { registry = "https://pypi.org/simple" }, marker = "sys_platform != 'win32'" },
+    { name = "python-dateutil" },
+    { name = "python-slugify" },
+    { name = "requests" },
+    { name = "tqdm" },
+    { name = "urllib3" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/bb/fe/3c097d1155ce3e4e743ff34fed0338c99b50e95b3464b801de653aeea871/kaggle-1.8.4.tar.gz", hash = "sha256:d71137f98312581726047cadceb28992c53ef905fe38c6dd9d6d3bfc4e43c982", size = 134878, upload-time = "2026-02-05T15:40:43.769Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/00/18/d0bc2485953a4c02caf5049f894b930e7cb11b35128a78af896b5a2d1d61/kaggle-1.8.4-py3-none-any.whl", hash = "sha256:b9cb6da6e99ce8ef22f8e84e75da2c82f814c2e548bfa07f3db220c9aeeaa8ba", size = 75470, upload-time = "2026-02-05T15:40:42.642Z" },
+]
+
+[[package]]
+name = "kagglesdk"
+version = "0.1.37"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "protobuf", version = "3.20.2", source = { registry = "https://pypi.org/simple" }, marker = "sys_platform == 'win32'" },
+    { name = "protobuf", version = "5.29.6", source = { registry = "https://pypi.org/simple" }, marker = "sys_platform != 'win32'" },
+    { name = "requests" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/44/8b/363ad553d5d8f23b10be03ae469cc0f3dd746862bc1213c4d6fac64a4a4b/kagglesdk-0.1.37.tar.gz", hash = "sha256:bc362761754966919f63cb7a702bc34118f9e8fcce038ee00fb30d5d11afbe08", size = 210001, upload-time = "2026-08-06T22:24:04.514Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/07/8e/70c358fcf8f6c41f9e74bc0d6203cb623eab6d4b062758c716d51f621167/kagglesdk-0.1.37-py3-none-any.whl", hash = "sha256:766e7d1e59379941b373957e7d80f612942e63ab4a638d99ae4ee3e9e92f050e", size = 262519, upload-time = "2026-08-06T22:24:03.344Z" },
 ]
 
 [[package]]
@@ -3848,6 +3885,18 @@ wheels = [
 ]
 
 [[package]]
+name = "python-slugify"
+version = "8.0.4"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "text-unidecode" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/87/c7/5e1547c44e31da50a460df93af11a535ace568ef89d7a811069ead340c4a/python-slugify-8.0.4.tar.gz", hash = "sha256:59202371d1d05b54a9e7720c5e038f928f45daaffe41dd10822f3907b937c856", size = 10921, upload-time = "2024-02-08T18:32:45.488Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/a4/62/02da182e544a51a5c3ccf4b03ab79df279f9c60c5e82d5e8bec7ca26ac11/python_slugify-8.0.4-py2.py3-none-any.whl", hash = "sha256:276540b79961052b66b7d116620b36518847f52d5fd9e3a70164fc8c50faa6b8", size = 10051, upload-time = "2024-02-08T18:32:43.911Z" },
+]
+
+[[package]]
 name = "pytokens"
 version = "0.4.1"
 source = { registry = "https://pypi.org/simple" }
@@ -5102,6 +5151,15 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/8a/11/965c6fd8e5cc254f1fe142d547387da17a8ebfd75a3455f637c663fb38a0/terminado-0.18.1.tar.gz", hash = "sha256:de09f2c4b85de4765f7714688fff57d3e75bad1f909b589fde880460c753fd2e", size = 32701, upload-time = "2024-03-12T14:34:39.026Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/6a/9e/2064975477fdc887e47ad42157e214526dcad8f317a948dee17e1659a62f/terminado-0.18.1-py3-none-any.whl", hash = "sha256:a4468e1b37bb318f8a86514f65814e1afc977cf29b3992a4500d9dd305dcceb0", size = 14154, upload-time = "2024-03-12T14:34:36.569Z" },
+]
+
+[[package]]
+name = "text-unidecode"
+version = "1.3"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/ab/e2/e9a00f0ccb71718418230718b3d900e71a5d16e701a3dae079a21e9cd8f8/text-unidecode-1.3.tar.gz", hash = "sha256:bad6603bb14d279193107714b288be206cac565dfa49aa5b105294dd5c4aab93", size = 76885, upload-time = "2019-08-30T21:36:45.405Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/a6/a5/c0b6468d3824fe3fde30dbb5e1f687b291608f9473681bbf7dabbf5a87d7/text_unidecode-1.3-py2.py3-none-any.whl", hash = "sha256:1311f10e8b895935241623731c2ba64f4c455287888b18189350b67134a822e8", size = 78154, upload-time = "2019-08-30T21:37:03.543Z" },
 ]
 
 [[package]]

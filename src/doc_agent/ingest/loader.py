@@ -1,6 +1,8 @@
 """Stage 1 — load scanned page-images"""
 from __future__ import annotations
 from ..contracts import *  # noqa
+from ..data import validate
+from ..data import snapshot
 from pathlib import Path
 from pdf2image import convert_from_path
 
@@ -51,4 +53,8 @@ def load_pages(cfg: dict) -> list[Page]:
     pages = _iter_pages(pages_root)
     if not pages:
         raise ValueError(f"No page images found under {pages_root}. Ensure PDFs exist in {raw_root}.")
+    
+    validate(pages)
+    snapshot(data_root) 
+    
     return pages
