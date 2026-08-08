@@ -1,11 +1,11 @@
 # Stage 0 — problem statement (one per group). Set by assignment.
-group_id: "G10"
+group_id: "G06"
 domain: "soil-science-crop-rotation-advisory-bangla-manuals"
 data_speciality: "non-english-bangla-conjunct-script-plus-degraded-scans"
 primary_nfr: "robust-and-reliable"
 nfr_target: "answer reliability >= 0.90 with evidence-gated abstention when evidence is weak"
 corpus:
-  min_pages: 300
-  min_words: 60000
+  pages: 776
+  words: 137990
   source_url: "https://archive.org/details/in.ernet.dli.2015.357305, https://archive.org/details/dli.bengal.10689.6254, https://archive.org/details/dli.bengal.10689.16530"
   license: "Public-domain historical scans (Internet Archive hosted; source credit required)"
