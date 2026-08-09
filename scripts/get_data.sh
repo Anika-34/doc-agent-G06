@@ -14,7 +14,8 @@ KAGGLE_DATASET="haha34/agri-bot"
 DATA_DIR="data"
 DOWNLOAD_DIR="${DATA_DIR}/.download"
 ZIP_PATH="${DOWNLOAD_DIR}/dataset.zip"
-EXPECTED_TOP_FOLDERS=("blank" "pages" "raw" "ground-truth-ocr")
+# EXPECTED_TOP_FOLDERS=("blank" "pages" "raw" "ground-truth-ocr")
+EXPECTED_TOP_FOLDERS=("raw")
 EXPECTED_SUBFOLDERS=("Bharater-Krishi-Babyasthar-Parichay" "Krishi-Bigyan" "Krishi-Darpan")
 
 log() { echo "[get_data] $*"; }
