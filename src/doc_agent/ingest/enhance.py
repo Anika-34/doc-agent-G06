@@ -25,9 +25,9 @@ def _prep_clahe(img: np.ndarray) -> np.ndarray:
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY) if img.ndim == 3 else img
     clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
     enhanced = clahe.apply(gray)
-    _, binary = cv2.threshold(enhanced, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
-    return cv2.cvtColor(binary, cv2.COLOR_GRAY2BGR)
- 
+    # _, binary = cv2.threshold(enhanced, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+    # return cv2.cvtColor(binary, cv2.COLOR_GRAY2BGR)
+    return cv2.cvtColor(enhanced, cv2.COLOR_GRAY2BGR)
  
 def _prep_stroke_repair(img: np.ndarray) -> np.ndarray:
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY) if img.ndim == 3 else img
@@ -84,8 +84,8 @@ class Enhancer:
             except ValueError:
                 out_path = src_path.parent.parent / "enhanced" / src_path.parent.name / src_path.name
  
-            # out_path.parent.mkdir(parents=True, exist_ok=True)
-            # cv2.imwrite(str(out_path), img)
+            out_path.parent.mkdir(parents=True, exist_ok=True)
+            cv2.imwrite(str(out_path), img)
  
             enhanced_pages.append(
                 Page(id=page.id, image_path=str(out_path), doc_id=page.doc_id)

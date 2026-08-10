@@ -1,10 +1,11 @@
 """Governance — PII detection + redaction (mandatory)"""
 from __future__ import annotations
 from ..contracts import *  # noqa
-import re
- 
-_BN_TO_ASCII_DIGITS = str.maketrans("০১২৩৪৫৬৭৮৯", "0123456789")
 
+import re
+
+_BN_TO_ASCII_DIGITS = str.maketrans("০১২৩৪৫৬৭৮৯", "0123456789")
+ 
  
 def _digit_normalized(text: str) -> str:
     return text.translate(_BN_TO_ASCII_DIGITS)
@@ -28,6 +29,8 @@ _PATTERNS: list[tuple[str, re.Pattern]] = [
     ("CREDIT_CARD", re.compile(r"\b(?:\d[ -]?){13,16}\b")),
 ]
 
+
+
 def detect(text: str) -> list[tuple[int,int,str]]:
     """Return (start,end,type) PII spans. IMPLEMENT."""
     # raise NotImplementedError("Governance: PII detect")
@@ -48,6 +51,7 @@ def detect(text: str) -> list[tuple[int,int,str]]:
  
     spans.sort(key=lambda s: s[0])
     return spans
+
 
 def redact(text: str) -> str:
     # raise NotImplementedError("Governance: PII redact")
@@ -76,15 +80,14 @@ def _scrub_value(value):
         scrubbed = [_scrub_value(v) for v in value]
         return type(value)(scrubbed)
     return value
- 
+
 
 def register(hooks) -> None:
     """Wire PII redaction into the pipeline. IMPLEMENT the handler (call redact())."""
-    
     def _scrub(ctx: dict) -> dict:
         # raise NotImplementedError("PII: redact text/answer/log in ctx")
         return _scrub_value(ctx)
-
+    
     hooks.register(hooks.AFTER_OCR, _scrub)       # scrub extracted text before indexing
     hooks.register(hooks.BEFORE_ANSWER, _scrub)   # scrub the outgoing answer
     hooks.register(hooks.ON_LOG, _scrub)          # scrub logs
