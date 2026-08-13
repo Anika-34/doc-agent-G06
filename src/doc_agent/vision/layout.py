@@ -12,16 +12,51 @@ from __future__ import annotations
 # import cv2
 from doclayout_yolo import YOLOv10
 from huggingface_hub import hf_hub_download
-from ..contracts import *  # noqa
+from ..contracts import *  # noqaimport json
+import cv2
+import json
+from pathlib import Path
+
 # import os
 
 # # Color palette (BGR) for region visualization
-# _COLOR_MAP = {
-#     "text": (0, 255, 0),       # Green
-#     "figure": (0, 0, 255),     # Red
-#     "table": (255, 0, 0),      # Blue
-#     "heading": (0, 0, 0),      # Black
-# }
+_COLOR_MAP = {
+    "text": (0, 255, 0),       # Green
+    "figure": (0, 0, 255),     # Red
+    "table": (255, 0, 0),      # Blue
+    "heading": (0, 0, 0),      # Black
+}
+
+def _parse_page_id(page_id: str) -> tuple[str, str]:
+    doc_id, _, page_stem = page_id.partition(":")
+    return doc_id, page_stem
+
+def _region_cache_path(layout_dir: Path, doc_id: str, page_stem: str) -> Path:
+    return layout_dir / "regions" / doc_id / f"{page_stem}.json"
+
+def _bb_image_path(layout_dir: Path, doc_id: str, page_stem: str) -> Path:
+    return layout_dir / "bb_images" / doc_id / f"{page_stem}.png"
+
+def _load_cached_regions(path: Path) -> list[Region]:
+    with open(path, "r", encoding="utf-8") as f:
+        return [Region.model_validate(r) for r in json.load(f)]
+
+def _save_regions(path: Path, regions: list[Region]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump([r.model_dump() for r in regions], f, ensure_ascii=False, indent=2)
+
+def _save_bb_image(path: Path, image_path: str, regions: list[Region]) -> None:
+    img = cv2.imread(image_path)
+    if img is None:
+        return
+    for r in regions:
+        x1, y1, x2, y2 = r.bbox
+        color = _COLOR_MAP.get(r.kind, (255, 255, 255))
+        cv2.rectangle(img, (x1, y1), (x2, y2), color, 2)
+        cv2.putText(img, r.kind, (x1, max(y1 - 5, 15)), cv2.FONT_HERSHEY_SIMPLEX, 0.6, color, 2, cv2.LINE_AA)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    cv2.imwrite(str(path), img)
 
 # def visualize_regions(pages: list[Page], regions: list[Region], output_dir: str = "data/debug_layout_2") -> None:
 #     """Saves page images with color-coded bounding boxes and labels for debugging."""
@@ -169,18 +204,33 @@ def _drop_contained_boxes(
     return kept
 
 def detect(pages: list[Page], cfg: dict) -> list[Region]:
-    model = _get_model()
+    data_root = Path(cfg.get("ingest", {}).get("data_root", "data"))
+    layout_dir = data_root / cfg.get("ingest", {}).get("layout_dir", "interim/layout")
+    is_debug = bool(cfg.get("debug"))
+
     conf_thr = cfg["layout"].get("score_thr", 0.085)
     imgsz = cfg["layout"].get("imgsz", 1184)
     device = cfg.get("device", "cpu")
     dedup_iou = cfg["layout"].get("dedup_iou_thr", 0.5)
 
-    regions: list[Region] = []
+    model = None  # lazy -- never loaded if every page is cached
+    all_regions: list[Region] = []
+
     for page in pages:
+        doc_id, page_stem = _parse_page_id(page.id)
+        cache_path = _region_cache_path(layout_dir, doc_id, page_stem)
+
+        if cache_path.exists():
+            all_regions.extend(_load_cached_regions(cache_path))
+            continue
+
+        if model is None:
+            model = _get_model()
+
         det = model.predict(page.image_path, imgsz=imgsz, conf=conf_thr, device=device)[0]
         boxes = det.boxes.xyxy.cpu().numpy()
         classes = det.boxes.cls.cpu().numpy()
-        confs = det.boxes.conf.cpu().numpy()   # need this now — kept alongside kind for dedup
+        confs = det.boxes.conf.cpu().numpy()
 
         raw = []
         for box, cls_id, conf in zip(boxes, classes, confs):
@@ -189,10 +239,12 @@ def detect(pages: list[Page], cfg: dict) -> list[Region]:
             kind = _NAME_TO_KIND.get(name, "text")
             raw.append(((x1, y1, x2, y2), kind, float(conf)))
 
-        deduped = _dedup_boxes(raw, iou_thr=dedup_iou)
-        deduped = _drop_contained_boxes(deduped, containment_thr=0.85)
-        for (x1, y1, x2, y2), kind in deduped:
-            regions.append(Region(page_id=page.id, bbox=(x1, y1, x2, y2), kind=kind))
+        deduped = _drop_contained_boxes(_dedup_boxes(raw, iou_thr=dedup_iou), containment_thr=0.85)
+        page_regions = [Region(page_id=page.id, bbox=box, kind=kind) for box, kind in deduped]
+        all_regions.extend(page_regions)
 
+        if not is_debug:
+            _save_regions(cache_path, page_regions)
+            _save_bb_image(_bb_image_path(layout_dir, doc_id, page_stem), page.image_path, page_regions)
     # visualize_regions(pages, regions)
-    return regions
+    return all_regions

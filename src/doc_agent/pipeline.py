@@ -2,26 +2,34 @@
 Do not reorder stages or remove hooks.run()/register_all() calls."""
 from __future__ import annotations
 import time
+from pathlib import Path
 from . import config, hooks, wiring  # noqa: F401
 from .ingest import loader, preprocess, enhance
 from .vision import layout, ocr
 from .index import chunk, embed, store
 from .retrieval import retriever
 from .agent import agent
+from .contracts import *
 
 
 def _apply_debug_limits(pages: list[Page], cfg: dict) -> list[Page]:
-    """Dev/debug speed knob -- caps how many pages flow into layout + OCR
-    so you can smoke-test the pipeline without waiting on the full corpus.
-    No-op unless cfg['debug']['max_pages_per_doc'] is set. Optionally
-    restrict to specific books via cfg['debug']['doc_ids'] (useful for
-    testing specifically on the held-out book, e.g. Krishi-Darpan)."""
     debug_cfg = cfg.get("debug", {})
     max_per_doc = debug_cfg.get("max_pages_per_doc")
     doc_ids = debug_cfg.get("doc_ids")
+    specific_pages = debug_cfg.get("pages", {})  # {"Krishi-Darpan": [4, 6, 9]}
 
     if doc_ids:
         pages = [p for p in pages if p.doc_id in doc_ids]
+
+    if specific_pages:
+        def _page_num(p: Page) -> int | None:
+            digits = "".join(ch for ch in Path(p.image_path).stem if ch.isdigit())
+            return int(digits) if digits else None
+
+        pages = [p for p in pages
+                  if p.doc_id not in specific_pages or _page_num(p) in specific_pages[p.doc_id]]
+        print(f"[debug] pages={specific_pages} active -- {len(pages)} pages")
+        return pages  # explicit page list takes priority over max_pages_per_doc
 
     if not max_per_doc:
         if doc_ids:

@@ -32,11 +32,23 @@ from transformers import AutoModelForSeq2SeqLM, AutoTokenizer
 from tqdm import tqdm
 
 from ..contracts import *  # noqa
-
+import json  # add to imports
 
 def _cfg_get(cfg, section, key, default):
     return cfg.get(section, {}).get(key, default)
 
+
+def _ocr_region_cache_path(ocr_dir: Path, doc_id: str, page_stem: str) -> Path:
+    return ocr_dir / "regions" / doc_id / f"{page_stem}.json"
+
+def _save_ocr_regions(path: Path, entries: list[dict]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(entries, f, ensure_ascii=False, indent=2)
+
+def _load_ocr_regions(path: Path) -> list[dict]:
+    with open(path, "r", encoding="utf-8") as f:
+        return json.load(f)
 
 # ---------------------------------------------------------------------------
 # Tesseract reading
@@ -193,118 +205,128 @@ class Reader:
 
 def transcribe(regions: list[Region], cfg: dict) -> list[Chunk]:
     ocr_cfg = cfg.get("ocr", {})
-    lang = ocr_cfg.get("tesseract_lang", "ben")  # ben+eng regressed corpus-wide CER 0.16->0.25 -- stay ben-only
+    lang = ocr_cfg.get("tesseract_lang", "ben")
     use_corrector = ocr_cfg.get("use_corrector", True)
     batch_size = int(ocr_cfg.get("corrector_batch_size", 32))
     data_root = Path(_cfg_get(cfg, "ingest", "data_root", "data"))
     pages_dir = _cfg_get(cfg, "ingest", "pages_dir", "pages")
+    ocr_dir = data_root / _cfg_get(cfg, "ingest", "ocr_dir", "interim/ocr")
     gt_root = data_root / ocr_cfg.get("gt_dir", "ground-truth-ocr")
     held_out_docs = set(ocr_cfg.get("held_out_docs", ["Krishi-Darpan"]))
+    is_debug = bool(cfg.get("debug"))
 
     raw_metrics = _MetricAccumulator(held_out_docs)
     corrected_metrics = _MetricAccumulator(held_out_docs) if use_corrector else None
 
-    # Pass 1: Tesseract per region, split into lines, flatten across the
-    # WHOLE corpus so correction (pass 2) runs as large batches instead of
-    # tiny per-region calls -- this is the main CPU-throughput lever.
-    # Regions are ordered by SPATIAL POSITION ONLY (page, then top-to-bottom,
-    # then left-to-right) -- this ordering is what both the emitted Chunks
-    # and the scoring below use as "reading order". No ground truth is
-    # consulted anywhere in this pass or in how regions are arranged.
-    region_lines: list[list[str]] = []
-    region_meta: list[tuple[Region, str, str]] = []
-    flat_lines: list[str] = []
-    flat_owner: list[tuple[int, int]] = []
-    t_pass1 = time.time()
-    regions = sorted(regions, key=lambda r: (r.page_id, r.bbox[1], r.bbox[0]))
-    for region in tqdm(regions, desc="tesseract"):
-        if region.kind == "figure":
-            continue
+    all_input_regions = regions
+    regions = sorted([r for r in regions if r.kind != "figure"],
+                      key=lambda r: (r.page_id, r.bbox[1], r.bbox[0]))
+
+    page_regions: dict[tuple[str, str], list[Region]] = {}
+    for region in regions:
         doc_id, page_stem = _parse_page_id(region.page_id)
+        page_regions.setdefault((doc_id, page_stem), []).append(region)
+
+    # (page_key -> list of {"region", "raw_text", "corrected_text"}), sourced from
+    # EITHER cache or fresh OCR below -- scoring and Chunk emission don't care which.
+    page_entries: dict[tuple[str, str], list[dict]] = {}
+    pages_to_process: list[tuple[str, str]] = []
+
+    for key in page_regions:
+        doc_id, page_stem = key
+        cache_path = _ocr_region_cache_path(ocr_dir, doc_id, page_stem)
+        if cache_path.exists():
+            page_entries[key] = _load_ocr_regions(cache_path)
+        else:
+            pages_to_process.append(key)
+
+    # Pass 1: Tesseract per region, only for uncached pages.
+    region_raw_lines: dict[tuple[str, str], list[list[str]]] = {}
+    flat_lines: list[str] = []
+    flat_owner: list[tuple[tuple[str, str], int, int]] = []
+    t_pass1 = time.time()
+    for key in tqdm(pages_to_process, desc="tesseract"):
+        doc_id, page_stem = key
         image_path = str(data_root / pages_dir / doc_id / f"{page_stem}.png")
-        psm = 7 if region.kind == "heading" else 6
-        crop = _crop(image_path, region.bbox)
-        raw_text = _tesseract_region(crop, lang=lang, psm=psm)
-        lines = [_normalize(ln) for ln in _split_lines(raw_text)]
-
-        region_idx = len(region_lines)
-        region_lines.append(lines)
-        region_meta.append((region, doc_id, page_stem))
-        for j, ln in enumerate(lines):
-            flat_lines.append(ln)
-            flat_owner.append((region_idx, j))
-
-    print(f"[timing] tesseract pass: {len(region_meta)} regions, "
+        per_region_lines: list[list[str]] = []
+        for region in page_regions[key]:
+            psm = 7 if region.kind == "heading" else 6
+            crop = _crop(image_path, region.bbox)
+            raw_text = _tesseract_region(crop, lang=lang, psm=psm)
+            lines = [_normalize(ln) for ln in _split_lines(raw_text)]
+            region_idx = len(per_region_lines)
+            per_region_lines.append(lines)
+            for j, ln in enumerate(lines):
+                flat_lines.append(ln)
+                flat_owner.append((key, region_idx, j))
+        region_raw_lines[key] = per_region_lines
+    print(f"[timing] tesseract pass: {len(pages_to_process)} pages, "
           f"{len(flat_lines)} lines in {time.time() - t_pass1:.1f}s")
 
-    # Pass 2: one batched correction sweep over every line in the corpus.
-    if use_corrector and flat_lines:
-        corrected_flat = _get_corrector(cfg).correct_batch(flat_lines, batch_size=batch_size)
-    else:
-        corrected_flat = flat_lines
+    # Pass 2: batched correction over every freshly-OCR'd line.
+    corrected_flat = _get_corrector(cfg).correct_batch(flat_lines, batch_size=batch_size) \
+        if use_corrector and flat_lines else flat_lines
 
-    corrected_region_lines = [list(lines) for lines in region_lines]
-    for (region_idx, line_idx), corrected in zip(flat_owner, corrected_flat):
-        corrected_region_lines[region_idx][line_idx] = corrected
+    region_corrected_lines = {k: [list(lines) for lines in v] for k, v in region_raw_lines.items()}
+    for (key, region_idx, line_idx), corrected in zip(flat_owner, corrected_flat):
+        region_corrected_lines[key][region_idx][line_idx] = corrected
 
-    # Pass 2.5: page-level scoring. For each page, concatenate every
-    # region's lines IN THE SPATIAL READING ORDER established above into
-    # one block of text -- this is exactly what a real downstream consumer
-    # of this pipeline would see, with no knowledge of the GT. That block
-    # is compared directly against the page's full GT text via jiwer's
-    # own edit-distance CER/WER. No custom alignment step, no GT-informed
-    # line matching -- the comparison never uses GT content to decide what
-    # corresponds to what, only to measure how far off the final result is.
-    pages_order: list[tuple[str, str]] = []
-    page_region_idxs: dict[tuple[str, str], list[int]] = {}
-    for idx, (region, doc_id, page_stem) in enumerate(region_meta):
-        key = (doc_id, page_stem)
-        if key not in page_region_idxs:
-            page_region_idxs[key] = []
-            pages_order.append(key)
-        page_region_idxs[key].append(idx)
+    # Pass 2.5: build region entries for freshly-processed pages, write region cache.
+    for key in pages_to_process:
+        doc_id, page_stem = key
+        entries = []
+        for region_idx, region in enumerate(page_regions[key]):
+            raw_text = "\n".join(region_raw_lines[key][region_idx])
+            corrected_text = "\n".join(region_corrected_lines[key][region_idx]) if use_corrector else raw_text
+            entries.append({
+                "region": region.model_dump(),
+                "raw_text": raw_text,
+                "corrected_text": corrected_text,
+            })
+        page_entries[key] = entries
+        if not is_debug:
+            _save_ocr_regions(_ocr_region_cache_path(ocr_dir, doc_id, page_stem), entries)
 
-    for doc_id, page_stem in pages_order:
-        idxs = page_region_idxs[(doc_id, page_stem)]
-        page_raw_text = "\n".join(ln for i in idxs for ln in region_lines[i])
-        page_corrected_text = "\n".join(ln for i in idxs for ln in corrected_region_lines[i])
-
+    # Pass 3: page-level scoring -- concatenate each page's cached/fresh region
+    # entries in list order (== spatial order, preserved by the cache) and diff
+    # against GT text. Cache now carries both raw and corrected text per region,
+    # so raw_metrics is scoreable on cache-hit pages too.
+    for key, entries in page_entries.items():
+        doc_id, page_stem = key
         gt_lines = _load_gt_lines(gt_root, doc_id, page_stem)
         if not gt_lines:
             continue
         page_gt_text = "\n".join(_normalize(g) for g in gt_lines)
-
+        page_raw_text = "\n".join(e["raw_text"] for e in entries)
+        page_corrected_text = "\n".join(e["corrected_text"] for e in entries)
         raw_metrics.add(doc_id, page_raw_text, page_gt_text)
         if corrected_metrics is not None:
             corrected_metrics.add(doc_id, page_corrected_text, page_gt_text)
 
-    # Pass 3: build chunks. Same spatial reading order as above.
+    # Pass 4: one Chunk PER REGION, built uniformly from page_entries regardless
+    # of cache vs. fresh-OCR source.
     chunks: list[Chunk] = []
     kind_counts: dict[str, int] = {}
-    skipped_figures = 0
+    for entries in page_entries.values():
+        for e in entries:
+            region = Region.model_validate(e["region"])
+            kind_counts[region.kind] = kind_counts.get(region.kind, 0) + 1
+            chunks.append(Chunk(
+                id=_region_chunk_id(region),
+                doc_id=_parse_page_id(region.page_id)[0],
+                text=e["corrected_text"] if use_corrector else e["raw_text"],
+                page_ids=[region.page_id],
+                score=0.0,
+            ))
 
-    for region in regions:
-        kind_counts[region.kind] = kind_counts.get(region.kind, 0) + 1
-        if region.kind == "figure":
-            skipped_figures += 1
-
-    for region_idx, (region, doc_id, page_stem) in enumerate(region_meta):
-        lines = corrected_region_lines[region_idx]
-        chunks.append(Chunk(
-            id=_region_chunk_id(region),
-            doc_id=doc_id,
-            text="\n".join(lines),
-            page_ids=[region.page_id],
-            score=0.0,
-        ))
+    skipped_figures = sum(1 for r in all_input_regions if r.kind == "figure")
 
     print(f"\n=== Region accounting ===")
-    print(f"input regions by kind : {kind_counts}")
+    print(f"input regions by kind (chunked) : {kind_counts}")
     print(f"figures skipped (no text to extract) : {skipped_figures}")
-    print(f"chunks emitted : {len(chunks)}  "
-        f"(expected = input regions - figures = {sum(kind_counts.values()) - skipped_figures})")
-    if len(chunks) != sum(kind_counts.values()) - skipped_figures:
-        print("WARNING: chunk count doesn't match expected -- a region was dropped somewhere above")
+    print(f"pages cached (skipped OCR) : {len(page_entries) - len(pages_to_process)}")
+    print(f"pages processed this run   : {len(pages_to_process)}")
+    print(f"chunks emitted : {len(chunks)}")
 
     raw_metrics.report("Tesseract (raw)")
     if corrected_metrics is not None:

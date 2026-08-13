@@ -4,8 +4,11 @@ device: cpu
 ingest:
   data_root: "data"
   raw_dir: "raw"
-  pages_dir: "pages"
-  blank_dir: "blank"
+  pages_dir: "interim/pages"
+  blank_dir: "interim/blank"
+  layout_dir: "interim/layout"
+  ocr_dir: "interim/ocr"
+  chunk_dir: "interim/chunks"
   render_dpi: 150
   min_blob_area: 15
   ink_ratio_threshold: 0.002
@@ -30,5 +33,8 @@ rl:        {algo: "ppo", train_policy: false}                         # bonus: s
 serve:     {batch: true}
 deploy:    {target: "hf-spaces"}
 # debug:
-#   doc_ids: ["Krishi-Darpan"]  
-#   max_pages_per_doc: 1
+#   pages: {
+#     "Bharater-Krishi-Babyasthar-Parichay": [4, 6, 9],
+#     "Krishi-Bigyan": [],
+#     "Krishi-Darpan": []
+#     }
