@@ -10,6 +10,10 @@ aiohttp==3.14.3
     #   fsspec
 aiosignal==1.4.0
     # via aiohttp
+albucore==0.0.24
+    # via albumentations
+albumentations==2.0.8
+    # via doclayout-yolo
 annotated-doc==0.0.5
     # via typer
 annotated-types==0.8.0
@@ -21,6 +25,8 @@ anyio==4.14.2
     #   starlette
 attrs==26.1.0
     # via aiohttp
+bleach==6.4.0
+    # via kaggle
 certifi==2026.7.22
     # via
     #   httpcore
@@ -48,6 +54,8 @@ dill==0.3.8
     #   multiprocess
 docker-pycreds==0.4.0
     # via wandb
+doclayout-yolo==0.0.4
+    # via doc-agent (pyproject.toml)
 faiss-cpu==1.8.0
     # via doc-agent (pyproject.toml)
 farama-notifications==0.0.6
@@ -102,6 +110,7 @@ httpx==0.28.1
     #   gradio-client
 huggingface-hub==0.36.2
     # via
+    #   doc-agent (pyproject.toml)
     #   datasets
     #   gradio
     #   gradio-client
@@ -125,6 +134,10 @@ jiwer==3.1.0
     # via doc-agent (pyproject.toml)
 joblib==1.5.3
     # via scikit-learn
+kaggle==1.8.4
+    # via doc-agent (pyproject.toml)
+kagglesdk==0.1.37
+    # via kaggle
 kiwisolver==1.5.0
     # via matplotlib
 lightning==2.3.3
@@ -143,7 +156,9 @@ markupsafe==2.1.5
 matplotlib==3.9.4
     # via
     #   doc-agent (pyproject.toml)
+    #   doclayout-yolo
     #   gradio
+    #   seaborn
 mdurl==0.1.2
     # via markdown-it-py
 mpmath==1.3.0
@@ -161,6 +176,8 @@ networkx==3.6.1
 numpy==1.26.4
     # via
     #   doc-agent (pyproject.toml)
+    #   albucore
+    #   albumentations
     #   contourpy
     #   datasets
     #   faiss-cpu
@@ -169,15 +186,23 @@ numpy==1.26.4
     #   lightning
     #   matplotlib
     #   opencv-python
+    #   opencv-python-headless
     #   pandas
     #   scikit-learn
     #   scipy
+    #   seaborn
     #   sentence-transformers
     #   torchmetrics
     #   torchvision
     #   transformers
 opencv-python==4.11.0.86
-    # via doc-agent (pyproject.toml)
+    # via
+    #   doc-agent (pyproject.toml)
+    #   doclayout-yolo
+opencv-python-headless==4.11.0.86
+    # via
+    #   albucore
+    #   albumentations
 orjson==3.11.9
     # via gradio
 packaging==24.2
@@ -186,6 +211,7 @@ packaging==24.2
     #   gradio
     #   gradio-client
     #   huggingface-hub
+    #   kaggle
     #   lightning
     #   lightning-utilities
     #   matplotlib
@@ -197,12 +223,15 @@ pandas==2.2.3
     # via
     #   doc-agent (pyproject.toml)
     #   datasets
+    #   doclayout-yolo
     #   gradio
+    #   seaborn
 pdf2image==1.17.0
     # via doc-agent (pyproject.toml)
 pillow==10.4.0
     # via
     #   doc-agent (pyproject.toml)
+    #   doclayout-yolo
     #   gradio
     #   matplotlib
     #   pdf2image
@@ -215,15 +244,24 @@ propcache==0.5.2
     # via
     #   aiohttp
     #   yarl
-protobuf==5.29.6
-    # via wandb
+protobuf==4.25.9
+    # via
+    #   doc-agent (pyproject.toml)
+    #   kaggle
+    #   kagglesdk
+    #   wandb
 psutil==7.2.2
-    # via wandb
+    # via
+    #   doclayout-yolo
+    #   wandb
+py-cpuinfo==9.0.0
+    # via doclayout-yolo
 pyarrow==25.0.0
     # via datasets
 pydantic==2.13.4
     # via
     #   doc-agent (pyproject.toml)
+    #   albumentations
     #   fastapi
     #   gradio
     #   pydantic-settings
@@ -243,12 +281,15 @@ pytesseract==0.3.13
     # via doc-agent (pyproject.toml)
 python-dateutil==2.9.0.post0
     # via
+    #   kaggle
     #   matplotlib
     #   pandas
 python-dotenv==1.2.2
     # via pydantic-settings
 python-multipart==0.0.32
     # via gradio
+python-slugify==8.0.4
+    # via kaggle
 pytorch-lightning==2.6.5
     # via lightning
 pytz==2026.3.post1
@@ -256,7 +297,9 @@ pytz==2026.3.post1
 pyyaml==6.0.3
     # via
     #   doc-agent (pyproject.toml)
+    #   albumentations
     #   datasets
+    #   doclayout-yolo
     #   gradio
     #   huggingface-hub
     #   lightning
@@ -271,7 +314,10 @@ regex==2026.7.19
 requests==2.34.2
     # via
     #   datasets
+    #   doclayout-yolo
     #   huggingface-hub
+    #   kaggle
+    #   kagglesdk
     #   transformers
     #   wandb
 rich==15.0.0
@@ -286,11 +332,17 @@ scikit-learn==1.9.0
     # via sentence-transformers
 scipy==1.17.1
     # via
+    #   albumentations
+    #   doclayout-yolo
     #   scikit-learn
     #   sentence-transformers
+seaborn==0.13.2
+    # via doclayout-yolo
 semantic-version==2.10.0
     # via gradio
 sentence-transformers==2.7.0
+    # via doc-agent (pyproject.toml)
+sentencepiece==0.2.2
     # via doc-agent (pyproject.toml)
 sentry-sdk==2.66.1
     # via wandb
@@ -300,6 +352,8 @@ setuptools==83.0.0
     # via wandb
 shellingham==1.5.4
     # via typer
+simsimd==6.5.16
+    # via albucore
 six==1.17.0
     # via
     #   docker-pycreds
@@ -308,8 +362,14 @@ smmap==5.0.3
     # via gitdb
 starlette==0.46.2
     # via fastapi
+stringzilla==5.1.2
+    # via albucore
 sympy==1.14.0
     # via torch
+text-unidecode==1.3
+    # via python-slugify
+thop==0.1.1.post2209072238
+    # via doclayout-yolo
 threadpoolctl==3.6.0
     # via scikit-learn
 timm==1.0.28
@@ -321,9 +381,11 @@ tomlkit==0.12.0
 torch==2.3.1
     # via
     #   doc-agent (pyproject.toml)
+    #   doclayout-yolo
     #   lightning
     #   pytorch-lightning
     #   sentence-transformers
+    #   thop
     #   timm
     #   torchmetrics
     #   torchvision
@@ -333,12 +395,16 @@ torchmetrics==1.4.3
     #   lightning
     #   pytorch-lightning
 torchvision==0.18.1
-    # via timm
+    # via
+    #   doclayout-yolo
+    #   timm
 tqdm==4.70.0
     # via
     #   doc-agent (pyproject.toml)
     #   datasets
+    #   doclayout-yolo
     #   huggingface-hub
+    #   kaggle
     #   lightning
     #   pytorch-lightning
     #   sentence-transformers
@@ -375,12 +441,15 @@ tzdata==2026.3
 urllib3==2.7.0
     # via
     #   gradio
+    #   kaggle
     #   requests
     #   sentry-sdk
 uvicorn==0.52.1
     # via gradio
 wandb==0.17.9
     # via doc-agent (pyproject.toml)
+webencodings==0.5.1
+    # via bleach
 websockets==12.0
     # via gradio-client
 xxhash==3.8.1
