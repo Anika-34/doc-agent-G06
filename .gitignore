@@ -10,3 +10,4 @@ __pycache__/
 src/doc_agent.egg-info/
 *DS_Store
 .env
+myenv/
