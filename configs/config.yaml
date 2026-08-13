@@ -1,6 +1,6 @@
 # THE place you set models & parameters. Code reads only from here.
 seed: 42
-device: cuda
+device: cpu
 ingest:
   data_root: "data"
   raw_dir: "raw"
