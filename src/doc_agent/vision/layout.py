@@ -9,56 +9,56 @@
 # vision/layout.py
 
 from __future__ import annotations
-import cv2
+# import cv2
 from doclayout_yolo import YOLOv10
 from huggingface_hub import hf_hub_download
 from ..contracts import *  # noqa
-import os
+# import os
 
-# Color palette (BGR) for region visualization
-_COLOR_MAP = {
-    "text": (0, 255, 0),       # Green
-    "figure": (0, 0, 255),     # Red
-    "table": (255, 0, 0),      # Blue
-    "heading": (0, 0, 0),      # Black
-}
+# # Color palette (BGR) for region visualization
+# _COLOR_MAP = {
+#     "text": (0, 255, 0),       # Green
+#     "figure": (0, 0, 255),     # Red
+#     "table": (255, 0, 0),      # Blue
+#     "heading": (0, 0, 0),      # Black
+# }
 
-def visualize_regions(pages: list[Page], regions: list[Region], output_dir: str = "data/debug_layout_2") -> None:
-    """Saves page images with color-coded bounding boxes and labels for debugging."""
-    os.makedirs(output_dir, exist_ok=True)
+# def visualize_regions(pages: list[Page], regions: list[Region], output_dir: str = "data/debug_layout_2") -> None:
+#     """Saves page images with color-coded bounding boxes and labels for debugging."""
+#     os.makedirs(output_dir, exist_ok=True)
     
-    # Group detected regions by page_id
-    regions_by_page: dict[str, list[Region]] = {}
-    for r in regions:
-        regions_by_page.setdefault(r.page_id, []).append(r)
+#     # Group detected regions by page_id
+#     regions_by_page: dict[str, list[Region]] = {}
+#     for r in regions:
+#         regions_by_page.setdefault(r.page_id, []).append(r)
 
-    for page in pages:
-        img = cv2.imread(page.image_path)
-        if img is None:
-            continue
+#     for page in pages:
+#         img = cv2.imread(page.image_path)
+#         if img is None:
+#             continue
             
-        page_regions = regions_by_page.get(page.id, [])
-        for r in page_regions:
-            x1, y1, x2, y2 = r.bbox
-            color = _COLOR_MAP.get(r.kind, (255, 255, 255))
+#         page_regions = regions_by_page.get(page.id, [])
+#         for r in page_regions:
+#             x1, y1, x2, y2 = r.bbox
+#             color = _COLOR_MAP.get(r.kind, (255, 255, 255))
             
-            # Draw bounding box
-            cv2.rectangle(img, (x1, y1), (x2, y2), color, thickness=2)
+#             # Draw bounding box
+#             cv2.rectangle(img, (x1, y1), (x2, y2), color, thickness=2)
             
-            # Draw region label above box
-            cv2.putText(
-                img, 
-                r.kind, 
-                (x1, max(y1 - 5, 15)), 
-                cv2.FONT_HERSHEY_SIMPLEX, 
-                0.6, 
-                color, 
-                2, 
-                cv2.LINE_AA
-            )
+#             # Draw region label above box
+#             cv2.putText(
+#                 img, 
+#                 r.kind, 
+#                 (x1, max(y1 - 5, 15)), 
+#                 cv2.FONT_HERSHEY_SIMPLEX, 
+#                 0.6, 
+#                 color, 
+#                 2, 
+#                 cv2.LINE_AA
+#             )
 
-        out_path = os.path.join(output_dir, f"debug_{page.id}.png")
-        cv2.imwrite(out_path, img)
+#         out_path = os.path.join(output_dir, f"debug_{page.id}.png")
+#         cv2.imwrite(out_path, img)
 
 # DocStructBench's 10 fine-grained classes, collapsed onto your 4-way Region.kind
 _ID_TO_NAME = {
@@ -194,5 +194,5 @@ def detect(pages: list[Page], cfg: dict) -> list[Region]:
         for (x1, y1, x2, y2), kind in deduped:
             regions.append(Region(page_id=page.id, bbox=(x1, y1, x2, y2), kind=kind))
 
-    visualize_regions(pages, regions)
+    # visualize_regions(pages, regions)
     return regions
