@@ -9,5 +9,6 @@ __pycache__/
 .venv/
 src/doc_agent.egg-info/
 *DS_Store
+mt5-small-2200/
 .env
 myenv/

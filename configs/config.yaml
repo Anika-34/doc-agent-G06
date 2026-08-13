@@ -13,7 +13,15 @@ ingest:
 
 enhance:   {enabled: false,  model: "unet_small", type: "diffusion"}   # or "vae" / "none"
 layout:    {model: "yolov10n", score_thr: 0.085}   # down from 0.25
-ocr:       {model: "tesseract", finetune: false}    # BASELINE = pretrained OCR
+ocr:
+  tesseract_lang: "ben"
+  use_corrector: true
+  corrector_checkpoint_path: "mt5-small-2200"   
+  corrector_max_length: 96
+  corrector_batch_size: 32
+  corrector_cpu_threads: null   
+  gt_dir: "ground-truth-ocr"
+  held_out_docs: ["Krishi-Darpan"]
 embed:     {model: "sentence-transformers/all-MiniLM-L6-v2", dim: 384}
 index:     {type: "faiss:hnsw", chunk_tokens: 256, overlap: 32}
 retrieve:  {k: 10, k_step: 10, k_max: 40, weak_threshold: 0.35, rerank: true, reranker: "cross-encoder/ms-marco-MiniLM-L6-v2"}   # k_step/k_max/weak_threshold drive evidence-gated re-search
@@ -21,3 +29,6 @@ agent:     {max_steps: 8, autonomy: "act-with-approval", budget_usd: 0.05}
 rl:        {algo: "ppo", train_policy: false}                         # bonus: set true
 serve:     {batch: true}
 deploy:    {target: "hf-spaces"}
+# debug:
+#   doc_ids: ["Krishi-Darpan"]  
+#   max_pages_per_doc: 1
