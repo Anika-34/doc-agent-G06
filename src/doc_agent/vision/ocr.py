@@ -65,9 +65,9 @@ def _crop(image_path: str, bbox: tuple[int, int, int, int]) -> np.ndarray:
     return img[y1:y2, x1:x2]
 
 
-def _tesseract_region(img_bgr: np.ndarray, lang: str, psm: int) -> str:
+def _tesseract_region(img_bgr: np.ndarray, lang: str, psm: int, oem: int = 1) -> str:
     rgb = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2RGB)
-    return pytesseract.image_to_string(rgb, lang=lang, config=f"--psm {psm}").strip()
+    return pytesseract.image_to_string(rgb, lang=lang, config=f"--psm {psm} --oem {oem}").strip()
 
 
 def _split_lines(text: str) -> list[str]:
@@ -77,6 +77,140 @@ def _split_lines(text: str) -> list[str]:
 def _normalize(text: str) -> str:
     text = unicodedata.normalize("NFC", text)
     return re.sub(r"\s+", " ", text).strip()
+
+
+# ---------------------------------------------------------------------------
+# NEW: word-level dual-lang (ben/eng) resolution
+# ---------------------------------------------------------------------------
+
+_BANGLA_RANGE = (0x0980, 0x09FF)
+
+
+def _word_boxes(img_bgr: np.ndarray, lang: str, psm: int, oem: int = 1) -> list[dict]:
+    """Word-level boxes + text + confidence for one region crop."""
+    rgb = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2RGB)
+    data = pytesseract.image_to_data(
+        rgb, lang=lang, config=f"--psm {psm} --oem {oem}", output_type=pytesseract.Output.DICT
+    )
+    words = []
+    for i, text in enumerate(data["text"]):
+        if not text.strip():
+            continue
+        conf = float(data["conf"][i])
+        if conf == -1:
+            continue
+        words.append({
+            "text": text, "conf": conf,
+            "left": data["left"][i], "top": data["top"][i],
+            "width": data["width"][i], "height": data["height"][i],
+            "line_num": data["line_num"][i], "word_num": data["word_num"][i],
+        })
+    return words
+
+def _line_boxes(img_bgr: np.ndarray, lang: str, psm: int, oem: int = 1) -> list[dict]:
+    """Group word boxes by line_num and compute each line's bbox + plain-OCR
+    text, so dual-lang can be gated PER LINE -- a region can genuinely mix
+    Bangla prose with one English citation line, and a single region-wide
+    check can't serve both without either missing the citation or risking
+    the Bangla lines."""
+    words = _word_boxes(img_bgr, lang=lang, psm=psm, oem=oem)
+    lines: dict[int, list[dict]] = {}
+    for w in words:
+        lines.setdefault(w["line_num"], []).append(w)
+
+    out = []
+    for line_num, ws in sorted(lines.items()):
+        xs1 = [w["left"] for w in ws]
+        ys1 = [w["top"] for w in ws]
+        xs2 = [w["left"] + w["width"] for w in ws]
+        ys2 = [w["top"] + w["height"] for w in ws]
+        text = " ".join(w["text"] for w in sorted(ws, key=lambda w: w["word_num"]))
+        out.append({"line_num": line_num, "bbox": (min(xs1), min(ys1), max(xs2), max(ys2)), "text": text})
+    return out
+
+
+def _resolve_mixed_script_line(
+    img_bgr: np.ndarray, psm: int, oem: int = 1,
+    per_word_conf_thr: float = 55.0,
+    swap_margin: float = 15.0,
+) -> str:
+    """Word-level gate: trust ben's own confidence per word. Only pay for the
+    expensive eng re-check on words ben is already unsure about, and only
+    accept the eng reading if it's decisively better -- not marginally.
+    Fixes English tokens being force-mapped into garbled Bangla glyphs
+    (e.g. 'equivalent inches of mercury' -> random Bangla digit-glyphs)."""
+    ben_words = _word_boxes(img_bgr, lang="ben", psm=psm, oem=oem)
+    resolved: list[tuple[int, int, str]] = []
+
+    for w in ben_words:
+        if w["conf"] >= per_word_conf_thr:
+            resolved.append((w["line_num"], w["word_num"], w["text"]))
+            continue
+
+        x, y, cw, ch = w["left"], w["top"], w["width"], w["height"]
+        pad = 2
+        crop = img_bgr[max(0, y - pad):y + ch + pad, max(0, x - pad):x + cw + pad]
+        if crop.size == 0:
+            resolved.append((w["line_num"], w["word_num"], w["text"]))
+            continue
+
+        rgb = cv2.cvtColor(crop, cv2.COLOR_BGR2RGB)
+        eng_txt = pytesseract.image_to_string(rgb, lang="eng", config="--psm 8").strip()
+        eng_data = pytesseract.image_to_data(rgb, lang="eng", config="--psm 8", output_type=pytesseract.Output.DICT)
+        eng_conf = max([c for c in eng_data["conf"] if c != -1], default=-1)
+
+        if eng_txt and eng_conf > w["conf"] + swap_margin:
+            resolved.append((w["line_num"], w["word_num"], eng_txt))
+        else:
+            resolved.append((w["line_num"], w["word_num"], w["text"]))
+
+    lines: dict[int, list[tuple[int, str]]] = {}
+    for line_num, word_num, txt in resolved:
+        lines.setdefault(line_num, []).append((word_num, txt))
+    out_lines = [" ".join(t for _, t in sorted(words)) for _, words in sorted(lines.items())]
+    return "\n".join(out_lines)
+
+
+# def _bangla_char_ratio(text: str) -> float:
+#     """Fraction of alphabetic characters that are Bangla. Low ratio flags
+#     citation lines / force-mapped garbage that the corrector shouldn't
+#     'fix' -- it has no training signal for that content and tends to
+#     hallucinate (e.g. repetition loops on chemistry-sounding tokens)."""
+#     letters = [ch for ch in text if ch.isalpha()]
+#     if not letters:
+#         return 1.0  # pure punctuation/numbers -- don't block correction on this alone
+#     bangla = sum(1 for ch in letters if _BANGLA_RANGE[0] <= ord(ch) <= _BANGLA_RANGE[1])
+#     return bangla / len(letters)
+
+# vision/ocr.py — replace _bangla_char_ratio (this is the one function used
+# by BOTH the region-level correction gate and the line-level dual-lang gate)
+
+_SAFE_PUNCT = set("।,.!?()[]—;:'\"-–০১২৩৪৫৬৭৮৯")  # Bangla digits are legitimate; ASCII digits are not
+
+def _bangla_char_ratio(text: str) -> float:
+    """Fraction of SIGNIFICANT characters (letters, digits, symbols -- not
+    just alphabetic ones) that are Bangla. Counting only isalpha() chars was
+    the bug: a line dominated by garbled Latin digit-glyphs but containing
+    a couple of real Bangla words scored 1.0, since digits/symbols were
+    invisible to the ratio either way -- exactly the citation/garbled-number
+    content this gate exists to catch."""
+    significant = [ch for ch in text if not ch.isspace() and ch not in _SAFE_PUNCT]
+    if not significant:
+        return 1.0
+    bangla = sum(1 for ch in significant if _BANGLA_RANGE[0] <= ord(ch) <= _BANGLA_RANGE[1])
+    return bangla / len(significant)
+
+def _is_degenerate(text: str, max_word_repeat: int = 4) -> bool:
+    """Catch seq2seq outputs stuck repeating the same short word run --
+    a generation failure, not a real correction."""
+    words = text.split()
+    if len(words) < max_word_repeat:
+        return False
+    for i in range(len(words) - max_word_repeat + 1):
+        window = words[i:i + max_word_repeat]
+        if len(set(window)) == 1:
+            return True
+    return False
 
 
 # ---------------------------------------------------------------------------
@@ -114,8 +248,15 @@ class _Corrector:
                 return_tensors="pt", truncation=True, padding=True,
                 max_length=self.max_length,
             )
-            gen_ids = self.model.generate(**inputs, max_length=self.max_length, num_beams=1)
+            gen_ids = self.model.generate(
+                **inputs, max_length=self.max_length, num_beams=1,
+                repetition_penalty=1.3,       # MODIFIED: penalize repeated tokens
+                no_repeat_ngram_size=3,       # MODIFIED: hard-block repeated 3-grams
+                early_stopping=True,          # MODIFIED
+            )
             decoded = self.tokenizer.batch_decode(gen_ids, skip_special_tokens=True)
+            # MODIFIED: fall back to the pre-correction line if generation still degenerated
+            decoded = [orig if _is_degenerate(corr) else corr for orig, corr in zip(batch, decoded)]
             out.extend(decoded)
         elapsed = time.time() - start
         rate = len(lines) / elapsed if elapsed > 0 else float("inf")
@@ -206,8 +347,13 @@ class Reader:
 def transcribe(regions: list[Region], cfg: dict) -> list[Chunk]:
     ocr_cfg = cfg.get("ocr", {})
     lang = ocr_cfg.get("tesseract_lang", "ben")
+    oem = int(ocr_cfg.get("tesseract_oem", 1))                                   # MODIFIED
     use_corrector = ocr_cfg.get("use_corrector", True)
     batch_size = int(ocr_cfg.get("corrector_batch_size", 32))
+    use_dual_lang = ocr_cfg.get("dual_lang_word_level", True)                    # MODIFIED
+    per_word_conf_thr = float(ocr_cfg.get("per_word_conf_thr", 55.0))            # MODIFIED
+    swap_margin = float(ocr_cfg.get("swap_margin", 15.0))                        # MODIFIED
+    min_bangla_ratio = float(ocr_cfg.get("min_bangla_ratio_for_correction", 0.6))# MODIFIED
     data_root = Path(_cfg_get(cfg, "ingest", "data_root", "data"))
     pages_dir = _cfg_get(cfg, "ingest", "pages_dir", "pages")
     ocr_dir = data_root / _cfg_get(cfg, "ingest", "ocr_dir", "interim/ocr")
@@ -252,7 +398,31 @@ def transcribe(regions: list[Region], cfg: dict) -> list[Chunk]:
         for region in page_regions[key]:
             psm = 7 if region.kind == "heading" else 6
             crop = _crop(image_path, region.bbox)
-            raw_text = _tesseract_region(crop, lang=lang, psm=psm)
+            # MODIFIED: line-level gate -- only run the risky word-level dual-lang
+            # pass on lines that actually look mixed/garbled; ordinary Bangla
+            # lines go straight through untouched.
+            if use_dual_lang:
+                lines_info = _line_boxes(crop, lang=lang, psm=psm, oem=oem)
+                # print(f"[ocr] line-gate check on region {region.bbox}: "
+                #     f"{[(round(_bangla_char_ratio(l['text']), 2), l['text'][:20]) for l in lines_info]}")
+                
+                resolved_lines = []
+                line_gate_ratio = float(ocr_cfg.get("whole_bangla_ratio_thr", 0.85))         # NEW
+                for line in lines_info:
+                    if _bangla_char_ratio(line["text"]) < line_gate_ratio:
+                        lx1, ly1, lx2, ly2 = line["bbox"]
+                        pad = 3
+                        line_crop = crop[max(0, ly1 - pad):ly2 + pad, max(0, lx1 - pad):lx2 + pad]
+                        resolved = _resolve_mixed_script_line(
+                            line_crop, psm=7, oem=oem,  # single-line crop -> psm 7
+                            per_word_conf_thr=per_word_conf_thr, swap_margin=swap_margin,
+                        ) if line_crop.size else line["text"]
+                        resolved_lines.append(resolved)
+                    else:
+                        resolved_lines.append(line["text"])
+                raw_text = "\n".join(resolved_lines)
+            else:
+                raw_text = _tesseract_region(crop, lang=lang, psm=psm, oem=oem)
             lines = [_normalize(ln) for ln in _split_lines(raw_text)]
             region_idx = len(per_region_lines)
             per_region_lines.append(lines)
@@ -263,13 +433,28 @@ def transcribe(regions: list[Region], cfg: dict) -> list[Chunk]:
     print(f"[timing] tesseract pass: {len(pages_to_process)} pages, "
           f"{len(flat_lines)} lines in {time.time() - t_pass1:.1f}s")
 
-    # Pass 2: batched correction over every freshly-OCR'd line.
-    corrected_flat = _get_corrector(cfg).correct_batch(flat_lines, batch_size=batch_size) \
-        if use_corrector and flat_lines else flat_lines
+    # print(f"raw lines to see for debug : {flat_lines}")
+
+    # Pass 2: batched correction -- MODIFIED: only over lines that are
+    # Bangla-heavy enough to be worth correcting. Citation lines / garbled
+    # force-mapped content bypass the corrector and keep Pass 1's output.
+    if use_corrector and flat_lines:
+        correctable_idx = [i for i, ln in enumerate(flat_lines) if _bangla_char_ratio(ln) >= min_bangla_ratio]
+        correctable_lines = [flat_lines[i] for i in correctable_idx]
+        corrected_subset = _get_corrector(cfg).correct_batch(correctable_lines, batch_size=batch_size)
+        corrected_flat = list(flat_lines)
+        for i, corrected in zip(correctable_idx, corrected_subset):
+            corrected_flat[i] = corrected
+        print(f"[ocr] sent {len(correctable_lines)}/{len(flat_lines)} lines to corrector "
+              f"(bangla_ratio >= {min_bangla_ratio}); rest kept as-is")
+    else:
+        corrected_flat = flat_lines
 
     region_corrected_lines = {k: [list(lines) for lines in v] for k, v in region_raw_lines.items()}
     for (key, region_idx, line_idx), corrected in zip(flat_owner, corrected_flat):
-        region_corrected_lines[key][region_idx][line_idx] = _normalize(corrected)
+        region_corrected_lines[key][region_idx][line_idx] = corrected
+
+    # print(f"[ocr] corrected lines to see for debug : {corrected_flat}")
 
     # Pass 2.5: build region entries for freshly-processed pages, write region cache.
     for key in pages_to_process:
