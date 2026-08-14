@@ -4,8 +4,8 @@ device: cpu
 ingest:
   data_root: "data"
   raw_dir: "raw"
-  pages_dir: "pages"
-  blank_dir: "blank"
+  pages_dir: "interim/pages"
+  blank_dir: "interim/blank"
   layout_dir: "interim/layout"
   ocr_dir: "interim/ocr"
   chunk_dir: "interim/chunks"

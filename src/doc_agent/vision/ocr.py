@@ -269,7 +269,7 @@ def transcribe(regions: list[Region], cfg: dict) -> list[Chunk]:
 
     region_corrected_lines = {k: [list(lines) for lines in v] for k, v in region_raw_lines.items()}
     for (key, region_idx, line_idx), corrected in zip(flat_owner, corrected_flat):
-        region_corrected_lines[key][region_idx][line_idx] = corrected
+        region_corrected_lines[key][region_idx][line_idx] = _normalize(corrected)
 
     # Pass 2.5: build region entries for freshly-processed pages, write region cache.
     for key in pages_to_process:
