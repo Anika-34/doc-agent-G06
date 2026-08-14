@@ -39,7 +39,7 @@ def _cfg_get(cfg, section, key, default):
 
 
 def _ocr_region_cache_path(ocr_dir: Path, doc_id: str, page_stem: str) -> Path:
-    return ocr_dir / "regions" / doc_id / f"{page_stem}.json"
+    return ocr_dir / doc_id / f"{page_stem}.json"
 
 def _save_ocr_regions(path: Path, entries: list[dict]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)

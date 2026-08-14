@@ -126,7 +126,7 @@ def split(chunks: list[Chunk], cfg: dict) -> list[Chunk]:
             out.extend(_load_chunks(cache_path))
             continue
 
-        region_cache_path = ocr_dir / "regions" / doc_id / f"{page_stem}.json"
+        region_cache_path = ocr_dir / doc_id / f"{page_stem}.json"
         entries = sorted(
             (e for e in _load_ocr_regions(region_cache_path) if e["region"]["kind"] != "heading"),
             key=lambda e: (e["region"]["bbox"][1], e["region"]["bbox"][0]),

@@ -9,6 +9,7 @@ ingest:
   layout_dir: "interim/layout"
   ocr_dir: "interim/ocr"
   chunk_dir: "interim/chunks"
+  blank_stats_max_dim: 1600
   render_dpi: 150
   min_blob_area: 15
   ink_ratio_threshold: 0.002
