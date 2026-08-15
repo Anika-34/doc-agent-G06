@@ -5,7 +5,8 @@ import json
 from pathlib import Path
 import numpy as np
 import faiss
-
+from ..logging_conf import get_logger 
+logger = get_logger(__name__)
 
 def _index_dir(cfg: dict) -> Path:
     data_root = Path(cfg.get("ingest", {}).get("data_root", "data"))
@@ -53,7 +54,7 @@ def build(chunks: list[Chunk], vectors: np.ndarray, cfg: dict) -> None:
     missing_positions = [i for i, c in enumerate(chunks) if c.id not in existing_ids]
 
     if existing_index is not None and not missing_positions:
-        print(f"[store] cache hit: all {len(chunks)} chunks already indexed "
+        logger.info(f"[store] cache hit: all {len(chunks)} chunks already indexed "
               f"({existing_index.ntotal} vectors in {out_dir}) -- nothing to build")
         return
 
@@ -64,7 +65,7 @@ def build(chunks: list[Chunk], vectors: np.ndarray, cfg: dict) -> None:
         index = faiss.IndexFlatIP(dim)
         new_vectors = vectors
         new_chunks = chunks
-        print(f"[store] no existing index found -- building fresh from {len(chunks)} chunks")
+        logger.info(f"[store] no existing index found -- building fresh from {len(chunks)} chunks")
     else:
         if existing_index.d != dim:
             raise ValueError(
@@ -74,7 +75,7 @@ def build(chunks: list[Chunk], vectors: np.ndarray, cfg: dict) -> None:
         index = existing_index
         new_vectors = vectors[missing_positions]
         new_chunks = [chunks[i] for i in missing_positions]
-        print(f"[store] cache partial hit: {len(existing_ids)} chunks already indexed, "
+        logger.info(f"[store] cache partial hit: {len(existing_ids)} chunks already indexed, "
               f"adding {len(new_chunks)} missing chunk(s)")
 
     if len(new_chunks) > 0:
@@ -87,5 +88,5 @@ def build(chunks: list[Chunk], vectors: np.ndarray, cfg: dict) -> None:
             for c in new_chunks:
                 f.write(json.dumps(c.model_dump(), ensure_ascii=False) + "\n")
 
-    print(f"[store] index now has {index.ntotal} vectors "
+    logger.info(f"[store] index now has {index.ntotal} vectors "
           f"({len(new_chunks)} newly added) + matching chunk records in {out_dir}")

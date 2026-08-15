@@ -38,6 +38,9 @@ import kagglehub
 from dotenv import load_dotenv
 load_dotenv()
 
+from ..logging_conf import get_logger 
+logger = get_logger(__name__)
+
 def _resolve_corrector_checkpoint(cfg: dict) -> str:
     """Download the mT5 corrector checkpoint from the private Kaggle dataset
     if it isn't already cached locally, and return the local path to it."""
@@ -50,9 +53,9 @@ def _resolve_corrector_checkpoint(cfg: dict) -> str:
         return local_override
 
     kaggle_dataset = ocr_cfg.get("corrector_kaggle_dataset", "haha34/mt5-small-2200")
-    print(f"[ocr] downloading corrector checkpoint from Kaggle dataset: {kaggle_dataset}")
+    logger.info(f"[ocr] downloading corrector checkpoint from Kaggle dataset: {kaggle_dataset}")
     local_path = kagglehub.dataset_download(kaggle_dataset)
-    print(f"[ocr] checkpoint cached at: {local_path}")
+    logger.info(f"[ocr] checkpoint cached at: {local_path}")
     return local_path
 
 def _cfg_get(cfg, section, key, default):
@@ -192,20 +195,6 @@ def _resolve_mixed_script_line(
     return "\n".join(out_lines)
 
 
-# def _bangla_char_ratio(text: str) -> float:
-#     """Fraction of alphabetic characters that are Bangla. Low ratio flags
-#     citation lines / force-mapped garbage that the corrector shouldn't
-#     'fix' -- it has no training signal for that content and tends to
-#     hallucinate (e.g. repetition loops on chemistry-sounding tokens)."""
-#     letters = [ch for ch in text if ch.isalpha()]
-#     if not letters:
-#         return 1.0  # pure punctuation/numbers -- don't block correction on this alone
-#     bangla = sum(1 for ch in letters if _BANGLA_RANGE[0] <= ord(ch) <= _BANGLA_RANGE[1])
-#     return bangla / len(letters)
-
-# vision/ocr.py — replace _bangla_char_ratio (this is the one function used
-# by BOTH the region-level correction gate and the line-level dual-lang gate)
-
 _SAFE_PUNCT = set("।,.!?()[]—;:'\"-–০১২৩৪৫৬৭৮৯")  # Bangla digits are legitimate; ASCII digits are not
 
 def _bangla_char_ratio(text: str) -> float:
@@ -250,7 +239,7 @@ class _Corrector:
         self.model = AutoModelForSeq2SeqLM.from_pretrained(checkpoint_path, torch_dtype=torch.float32)
         self.model.to("cpu")
         self.model.eval()
-        print(f"[timing] mT5 corrector loaded in {time.time() - start:.1f}s "
+        logger.info(f"[timing] mT5 corrector loaded in {time.time() - start:.1f}s "
               f"(one-time cost -- excluded from per-line rate below)")
         self.max_length = max_length
         self.prefix = "ocr_fix: "
@@ -281,7 +270,7 @@ class _Corrector:
             out.extend(decoded)
         elapsed = time.time() - start
         rate = len(lines) / elapsed if elapsed > 0 else float("inf")
-        print(f"[timing] correction: {len(lines)} lines in {elapsed:.1f}s ({rate:.1f} lines/sec)")
+        logger.info(f"[timing] correction: {len(lines)} lines in {elapsed:.1f}s ({rate:.1f} lines/sec)")
         return out
 
 
@@ -346,10 +335,10 @@ class _MetricAccumulator:
         def _scores(hyps, refs):
             return (_cer(refs, hyps), _wer(refs, hyps)) if refs else None
         corpus, held = _scores(self.all_hyp, self.all_ref), _scores(self.held_hyp, self.held_ref)
-        print(f"\n=== {label} ===")
-        print(f"corpus-wide : cer={corpus[0]:.4f}  wer={corpus[1]:.4f}  (n={len(self.all_ref)} pages)"
+        logger.info(f"\n=== {label} ===")
+        logger.info(f"corpus-wide : cer={corpus[0]:.4f}  wer={corpus[1]:.4f}  (n={len(self.all_ref)} pages)"
               if corpus else "corpus-wide : no ground truth found -- skipped")
-        print(f"held-out    : cer={held[0]:.4f}  wer={held[1]:.4f}  (n={len(self.held_ref)} pages)"
+        logger.info(f"held-out    : cer={held[0]:.4f}  wer={held[1]:.4f}  (n={len(self.held_ref)} pages)"
               if held else "held-out    : no ground truth found -- skipped")
 
 
@@ -425,9 +414,6 @@ def transcribe(regions: list[Region], cfg: dict) -> list[Chunk]:
             # lines go straight through untouched.
             if use_dual_lang:
                 lines_info = _line_boxes(crop, lang=lang, psm=psm, oem=oem)
-                # print(f"[ocr] line-gate check on region {region.bbox}: "
-                #     f"{[(round(_bangla_char_ratio(l['text']), 2), l['text'][:20]) for l in lines_info]}")
-                
                 resolved_lines = []
                 line_gate_ratio = float(ocr_cfg.get("whole_bangla_ratio_thr", 0.85))         # NEW
                 for line in lines_info:
@@ -452,10 +438,8 @@ def transcribe(regions: list[Region], cfg: dict) -> list[Chunk]:
                 flat_lines.append(ln)
                 flat_owner.append((key, region_idx, j))
         region_raw_lines[key] = per_region_lines
-    print(f"[timing] tesseract pass: {len(pages_to_process)} pages, "
+    logger.info(f"[timing] tesseract pass: {len(pages_to_process)} pages, "
           f"{len(flat_lines)} lines in {time.time() - t_pass1:.1f}s")
-
-    # print(f"raw lines to see for debug : {flat_lines}")
 
     # Pass 2: batched correction -- MODIFIED: only over lines that are
     # Bangla-heavy enough to be worth correcting. Citation lines / garbled
@@ -467,7 +451,7 @@ def transcribe(regions: list[Region], cfg: dict) -> list[Chunk]:
         corrected_flat = list(flat_lines)
         for i, corrected in zip(correctable_idx, corrected_subset):
             corrected_flat[i] = corrected
-        print(f"[ocr] sent {len(correctable_lines)}/{len(flat_lines)} lines to corrector "
+        logger.info(f"[ocr] sent {len(correctable_lines)}/{len(flat_lines)} lines to corrector "
               f"(bangla_ratio >= {min_bangla_ratio}); rest kept as-is")
     else:
         corrected_flat = flat_lines
@@ -475,8 +459,6 @@ def transcribe(regions: list[Region], cfg: dict) -> list[Chunk]:
     region_corrected_lines = {k: [list(lines) for lines in v] for k, v in region_raw_lines.items()}
     for (key, region_idx, line_idx), corrected in zip(flat_owner, corrected_flat):
         region_corrected_lines[key][region_idx][line_idx] = corrected
-
-    # print(f"[ocr] corrected lines to see for debug : {corrected_flat}")
 
     # Pass 2.5: build region entries for freshly-processed pages, write region cache.
     for key in pages_to_process:
@@ -526,17 +508,17 @@ def transcribe(regions: list[Region], cfg: dict) -> list[Chunk]:
                 score=0.0,
             ))
 
-    skipped_figures = sum(1 for r in all_input_regions if r.kind == "figure")
+    # skipped_figures = sum(1 for r in all_input_regions if r.kind == "figure")
 
-    print(f"\n=== Region accounting ===")
-    print(f"input regions by kind (chunked) : {kind_counts}")
-    print(f"figures skipped (no text to extract) : {skipped_figures}")
-    print(f"pages cached (skipped OCR) : {len(page_entries) - len(pages_to_process)}")
-    print(f"pages processed this run   : {len(pages_to_process)}")
-    print(f"chunks emitted : {len(chunks)}")
+    # logger.info(f"\n=== Region accounting ===")
+    # logger.info(f"input regions by kind (chunked) : {kind_counts}")
+    # logger.info(f"figures skipped (no text to extract) : {skipped_figures}")
+    # logger.info(f"pages cached (skipped OCR) : {len(page_entries) - len(pages_to_process)}")
+    # logger.info(f"pages processed this run   : {len(pages_to_process)}")
+    # logger.info(f"chunks emitted : {len(chunks)}")
 
-    raw_metrics.report("Tesseract (raw)")
-    if corrected_metrics is not None:
-        corrected_metrics.report("Tesseract + mT5 corrector")
+    # raw_metrics.report("Tesseract (raw)")
+    # if corrected_metrics is not None:
+    #     corrected_metrics.report("Tesseract + mT5 corrector")
 
     return chunks

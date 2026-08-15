@@ -9,6 +9,9 @@ from transformers import AutoTokenizer
 
 from ..contracts import *  # noqa
 
+from ..logging_conf import get_logger  # adjust relative import path as needed
+logger = get_logger(__name__)
+
 _TOKENIZER = None
 
 def _get_tokenizer():
@@ -153,6 +156,7 @@ def split(chunks: list[Chunk], cfg: dict) -> list[Chunk]:
             _save_chunks(cache_path, page_chunks)
         out.extend(page_chunks)
 
-    print(f"[chunk] {len(page_keys)} pages -> {len(out)} chunks "
-          f"(target={target_tokens} cap={max_tokens} overlap={overlap_tokens})")
+    logger.info(f"[chunk] {len(page_keys)} pages -> {len(out)} chunks "
+                f"(target={target_tokens} cap={max_tokens} overlap={overlap_tokens})")
+
     return out
