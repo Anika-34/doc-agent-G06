@@ -982,6 +982,7 @@ dependencies = [
     { name = "huggingface-hub" },
     { name = "jiwer" },
     { name = "kaggle" },
+    { name = "kagglehub" },
     { name = "lightning" },
     { name = "matplotlib" },
     { name = "numpy" },
@@ -1037,6 +1038,7 @@ requires-dist = [
     { name = "jiwer", specifier = ">=3.0,<4.0" },
     { name = "jupyterlab", marker = "extra == 'notebook'", specifier = ">=4.2,<5.0" },
     { name = "kaggle", specifier = ">=1.6,<2.0" },
+    { name = "kagglehub", specifier = ">=0.1.2" },
     { name = "lightning", specifier = ">=2.2,<2.4" },
     { name = "matplotlib", specifier = ">=3.8,<3.10" },
     { name = "mypy", marker = "extra == 'dev'", specifier = ">=1.10" },
@@ -1988,6 +1990,22 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/bb/fe/3c097d1155ce3e4e743ff34fed0338c99b50e95b3464b801de653aeea871/kaggle-1.8.4.tar.gz", hash = "sha256:d71137f98312581726047cadceb28992c53ef905fe38c6dd9d6d3bfc4e43c982", size = 134878, upload-time = "2026-02-05T15:40:43.769Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/00/18/d0bc2485953a4c02caf5049f894b930e7cb11b35128a78af896b5a2d1d61/kaggle-1.8.4-py3-none-any.whl", hash = "sha256:b9cb6da6e99ce8ef22f8e84e75da2c82f814c2e548bfa07f3db220c9aeeaa8ba", size = 75470, upload-time = "2026-02-05T15:40:42.642Z" },
+]
+
+[[package]]
+name = "kagglehub"
+version = "1.0.2"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "kagglesdk" },
+    { name = "packaging" },
+    { name = "pyyaml" },
+    { name = "requests" },
+    { name = "tqdm" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/b5/b9/e1bdafdcdb98e8e5354b30959ed48f4a08ca2c2dc72c968c5b38c4baa1b5/kagglehub-1.0.2.tar.gz", hash = "sha256:08abae0c1e249904003ce6f23c189166e3032220478426a552c77c2edb08b93a", size = 117457, upload-time = "2026-06-09T17:14:05.313Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/61/1a/6b1293d0b091905e367f86771a7122e5f7f2729ab9f0f36a1617f7ad6c05/kagglehub-1.0.2-py3-none-any.whl", hash = "sha256:ffad2d79cfda9b06848e98cb0a4a48e286285cfba4aeadadc0b8dbd9bcadd372", size = 70645, upload-time = "2026-06-09T17:14:04.04Z" },
 ]
 
 [[package]]

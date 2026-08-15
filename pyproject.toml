@@ -33,6 +33,7 @@ dependencies = [
   "huggingface-hub>=0.36.2",
   "sentencepiece>=0.2,<0.3",
   "protobuf>=4.25,<5.0",
+  "kagglehub>=0.1.2",
 ]
 
 [project.optional-dependencies]

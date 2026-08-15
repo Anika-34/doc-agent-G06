@@ -34,6 +34,27 @@ from tqdm import tqdm
 from ..contracts import *  # noqa
 import json  # add to imports
 
+import kagglehub
+from dotenv import load_dotenv
+load_dotenv()
+
+def _resolve_corrector_checkpoint(cfg: dict) -> str:
+    """Download the mT5 corrector checkpoint from the private Kaggle dataset
+    if it isn't already cached locally, and return the local path to it."""
+    ocr_cfg = cfg.get("ocr", {})
+    local_override = ocr_cfg.get("corrector_checkpoint_path")
+
+    # If it's already a real local directory (e.g. you're testing with a
+    # manually-placed copy), use it directly -- skip the download.
+    if local_override and Path(local_override).is_dir():
+        return local_override
+
+    kaggle_dataset = ocr_cfg.get("corrector_kaggle_dataset", "haha34/mt5-small-2200")
+    print(f"[ocr] downloading corrector checkpoint from Kaggle dataset: {kaggle_dataset}")
+    local_path = kagglehub.dataset_download(kaggle_dataset)
+    print(f"[ocr] checkpoint cached at: {local_path}")
+    return local_path
+
 def _cfg_get(cfg, section, key, default):
     return cfg.get(section, {}).get(key, default)
 
@@ -267,7 +288,8 @@ class _Corrector:
 def _get_corrector(cfg: dict) -> "_Corrector":
     global _CORRECTOR
     if _CORRECTOR is None:
-        checkpoint_path = cfg["ocr"]["corrector_checkpoint_path"]
+        # checkpoint_path = cfg["ocr"]["corrector_checkpoint_path"]
+        checkpoint_path = _resolve_corrector_checkpoint(cfg)
         max_length = int(_cfg_get(cfg, "ocr", "corrector_max_length", 96))
         num_threads = _cfg_get(cfg, "ocr", "corrector_cpu_threads", None)
         _CORRECTOR = _Corrector(checkpoint_path, max_length, num_threads)
