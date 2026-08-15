@@ -6,7 +6,7 @@
 - Licence / usage rights:
   - Pre-independence Bengali publications hosted on Internet Archive and treated as public-domain historical scans.
   - Re-share allowed with source attribution; provenance must be preserved.
-- Pages: 776   Words: ~120,458 (A1 estimate)   Size on disk: ~37.98 MB
+- Pages: 776   Words: 137990   Size on disk: ~37.98 MB
 - Scan/script difficulty notes:
   - Bangla conjunct letters (যুক্তাক্ষর), floating matras, and older orthography from 1930s-40s.
   - Degraded scan conditions: blur, low contrast, faded ink, occasional figures/maps and mixed formatting.
