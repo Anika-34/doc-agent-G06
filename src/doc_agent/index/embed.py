@@ -16,6 +16,7 @@ def _get_model(device: str) -> SentenceTransformer:
 def encode(chunks: list[Chunk], cfg: dict) -> np.ndarray:
     embed_cfg = cfg.get("embed", {})
     device = cfg.get("device", "cpu")
+    model_name = embed_cfg.get("model", "BAAI/bge-m3")
     batch_size = int(embed_cfg.get("batch_size", 16))
 
     model = _get_model(device)
